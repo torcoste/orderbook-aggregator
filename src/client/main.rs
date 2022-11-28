@@ -2,7 +2,7 @@ use std::error::Error;
 use tonic::{transport::Channel, Request};
 
 use orderbook::orderbook_aggregator_client::OrderbookAggregatorClient;
-use orderbook::{Empty};
+use orderbook::Empty;
 
 pub mod orderbook {
     tonic::include_proto!("orderbook"); // The string specified here must match the proto package name
@@ -22,7 +22,7 @@ async fn print_summaries(
         if let Ok(message) = message_result {
             if let Some(message) = message {
                 println!("Received summary. Spread: {}", message.spread);
-                println!("Full summary: {:?}", message);
+                // println!("Full summary: {:?}", message);
                 println!("-----------------------------------")
             }
         } else {
