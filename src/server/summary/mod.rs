@@ -11,6 +11,7 @@ use calculate::calculate_summary;
 
 pub fn get_summary_rx(
     mut data_rx: Receiver<ExchangeOrderbookData>,
+    depth: u16,
     data_lifetime_ms: u64,
 ) -> Receiver<Summary> {
     let (tx, rx) = mpsc::channel::<Summary>(1);
@@ -21,7 +22,7 @@ pub fn get_summary_rx(
         while let Some(data) = data_rx.recv().await {
             orderbook_data.insert(data.exchange.clone(), data);
 
-            let summary = calculate_summary(orderbook_data.clone(), data_lifetime_ms);
+            let summary = calculate_summary(orderbook_data.clone(), depth, data_lifetime_ms);
 
             if let Some(summary) = summary {
                 tx.send(summary).await.expect("Failed to send summary");

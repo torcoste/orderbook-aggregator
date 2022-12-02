@@ -47,12 +47,12 @@ impl OrderbookAggregator for OrderbookAggregatorService {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:10000".parse()?;
     let symbol = "ethbtc".to_string();
-    let depth = 20;
+    let depth: u16 = 20;
     let data_lifetime_ms = 2000; // 2 seconds
 
     let clients: Arc<Mutex<Vec<ClientSender>>> = Arc::new(Mutex::new(vec![]));
     let data_rx = data_sources::get_data_rx(symbol, depth);
-    let mut summary_rx = summary::get_summary_rx(data_rx, data_lifetime_ms);
+    let mut summary_rx = summary::get_summary_rx(data_rx, depth, data_lifetime_ms);
 
     let _main_server_thread = {
         let clients = clients.clone();

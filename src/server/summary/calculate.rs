@@ -6,8 +6,10 @@ use std::{
 use crate::data_sources::output_data_format::ExchangeOrderbookData;
 use crate::orderbook::{Level, Summary};
 
+// TODO: measure calculation time
 pub fn calculate_summary(
     orderbook_data: HashMap<String, ExchangeOrderbookData>,
+    depth: u16,
     data_lifetime_ms: u64,
 ) -> Option<Summary> {
     let mut bids: Vec<Level> = Vec::new();
@@ -61,6 +63,17 @@ pub fn calculate_summary(
             .unwrap()
             .then(a.amount.partial_cmp(&b.amount).unwrap())
     });
+
+    // Select only first `depth` levels
+    {
+        if bids.len() > depth as usize {
+            bids.truncate(depth as usize);
+        }
+
+        if asks.len() > depth as usize {
+            asks.truncate(depth as usize);
+        }
+    }
 
     if asks.is_empty() && bids.is_empty() {
         return None;
