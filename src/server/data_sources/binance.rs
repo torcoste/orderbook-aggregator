@@ -28,7 +28,7 @@ use tokio::sync::mpsc;
 
 pub fn spawn_thread(
     symbol: String,
-    depth: u32,
+    depth: u16,
     tx: mpsc::Sender<ExchangeOrderbookData>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
@@ -41,7 +41,7 @@ pub fn spawn_thread(
         let (mut socket, _) = connect(url).expect("Can't connect to Binance API");
 
         loop {
-            let message = socket.read_message().expect("Error reading message");
+            let message = socket.read_message().expect("Error reading message from Binance API");
 
             if message.is_ping() {
                 socket
@@ -57,6 +57,9 @@ pub fn spawn_thread(
             match serde_json::from_slice::<BinanceApiOrderBookMessage>(&data) {
                 Ok(orderbook) => {
                     if tx.is_closed() {
+                        println!("Channel is closed. Unsubscribing from Binance API...");
+                        socket.close(None).expect("Error closing connection to Binance API");
+                        println!("Connection to Binance API closed.");
                         break;
                     }
 

@@ -3,6 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::Deserialize;
 
 use super::binance::BinanceApiOrderBookMessage;
+use super::bitstamp::BitstampApiOrderBookData;
 
 /// Unified output data format
 #[derive(Deserialize, Debug, Clone)]
@@ -20,6 +21,22 @@ impl ExchangeOrderbookData {
             .unwrap()
             .as_millis() as u64;
 
+        Self {
+            exchange,
+            asks,
+            bids,
+            timestamp,
+        }
+    }
+
+    /// If exchanges API reeturns timestamp, we use it to calculate data age more accurately.
+    /// Otherwise we use current time (see `new` method).
+    pub fn new_with_timestamp(
+        exchange: String,
+        asks: Vec<(f64, f64)>,
+        bids: Vec<(f64, f64)>,
+        timestamp: u64,
+    ) -> Self {
         Self {
             exchange,
             asks,
@@ -56,5 +73,37 @@ impl From<BinanceApiOrderBookMessage> for ExchangeOrderbookData {
             .collect();
 
         Self::new(exchange, asks, bids)
+    }
+}
+
+impl From<BitstampApiOrderBookData> for ExchangeOrderbookData {
+    fn from(bitstamp_orderbook_message: BitstampApiOrderBookData) -> Self {
+        let exchange = "bitstamp".to_string();
+
+        let asks = bitstamp_orderbook_message
+            .asks
+            .iter()
+            .map(|(price, amount)| {
+                (
+                    price.parse::<f64>().unwrap(),
+                    amount.parse::<f64>().unwrap(),
+                )
+            })
+            .collect();
+
+        let bids = bitstamp_orderbook_message
+            .bids
+            .iter()
+            .map(|(price, amount)| {
+                (
+                    price.parse::<f64>().unwrap(),
+                    amount.parse::<f64>().unwrap(),
+                )
+            })
+            .collect();
+
+        let timestamp = bitstamp_orderbook_message.timestamp.parse().unwrap();
+
+        Self::new_with_timestamp(exchange, asks, bids, timestamp)
     }
 }
