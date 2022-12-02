@@ -1,6 +1,9 @@
 use serde::Deserialize;
+use tokio::sync::mpsc;
 use tungstenite::{connect, Message};
 use url::Url;
+
+use super::output_data_format::ExchangeOrderbookData;
 
 // Maximal age of connection is 24 hours
 // TODO: reconnect if connection is lost
@@ -10,6 +13,13 @@ pub struct BinanceApiOrderBookMessage {
     // lastUpdateId: u64,
     pub bids: Vec<(String, String)>,
     pub asks: Vec<(String, String)>,
+}
+
+impl BinanceApiOrderBookMessage {
+    pub fn trim(&mut self, depth: u16) {
+        self.bids.truncate(depth as usize);
+        self.asks.truncate(depth as usize);
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -23,8 +33,8 @@ struct BinanceApiErrorMessage {
     error: BinanceApiError,
 }
 
-use super::output_data_format::ExchangeOrderbookData;
-use tokio::sync::mpsc;
+const BINANCE_API_BASE_URL: &str = "wss://stream.binance.com:9443/ws";
+const BINANCE_SUPPORTED_DEPTH_LIMITS: [u16; 3] = [5, 10, 20];
 
 pub fn spawn_thread(
     symbol: String,
@@ -32,16 +42,34 @@ pub fn spawn_thread(
     tx: mpsc::Sender<ExchangeOrderbookData>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        let url = format!(
-            "wss://stream.binance.com:9443/ws/{}@depth{}@100ms",
-            symbol, depth
-        );
+        let effective_depth = {
+            BINANCE_SUPPORTED_DEPTH_LIMITS
+                .iter()
+                .find(|&&limit| limit >= depth)
+                .unwrap_or_else(|| {
+                    println!(
+                        "[WARNING] Binance API supports only depth <= {}. Only first {} levels will be used.",
+                        BINANCE_SUPPORTED_DEPTH_LIMITS[2], BINANCE_SUPPORTED_DEPTH_LIMITS[2]
+                    );
+
+                    &BINANCE_SUPPORTED_DEPTH_LIMITS[2]
+                })
+                .clone()
+
+            // "Unlimited" depth support may be implemented with more complex logic
+            // Docs: https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md#how-to-manage-a-local-order-book-correctly
+            // But it's not the goal of this app.
+        };
+
+        let url = format!("{}/{}@depth{}@100ms", BINANCE_API_BASE_URL, symbol, depth);
         let url = Url::parse(&url).expect("Failed to parse URL");
 
         let (mut socket, _) = connect(url).expect("Can't connect to Binance API");
 
         loop {
-            let message = socket.read_message().expect("Error reading message from Binance API");
+            let message = socket
+                .read_message()
+                .expect("Error reading message from Binance API");
 
             if message.is_ping() {
                 socket
@@ -58,9 +86,16 @@ pub fn spawn_thread(
                 Ok(orderbook) => {
                     if tx.is_closed() {
                         println!("Channel is closed. Unsubscribing from Binance API...");
-                        socket.close(None).expect("Error closing connection to Binance API");
+                        socket
+                            .close(None)
+                            .expect("Error closing connection to Binance API");
                         println!("Connection to Binance API closed.");
                         break;
+                    }
+
+                    let mut orderbook = orderbook;
+                    if depth < effective_depth {
+                        orderbook.trim(depth);
                     }
 
                     let orderbook_data = ExchangeOrderbookData::from(orderbook);

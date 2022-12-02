@@ -63,7 +63,7 @@ pub fn spawn_thread(
             "[WARNING] Bitstamp API supports only depth <= {}. Only first {} levels will be used.",
             BITSTAMP_DEPTH_LIMIT, BITSTAMP_DEPTH_LIMIT
         );
-        // Unlimited depth support may be implemented with requesting initial orderbook and then using `diff_order_book` channel
+        // "Unlimited" depth support may be implemented with requesting initial orderbook and then using `diff_order_book` channel
         // Docs: https://www.bitstamp.net/websocket/v2/
         // But it's not the goal of this app.
     }
