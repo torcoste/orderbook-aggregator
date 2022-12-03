@@ -3,6 +3,7 @@ use tokio::sync::mpsc;
 use tungstenite::{connect, Message};
 use url::Url;
 
+use crate::helpers::get_env_var_or_default;
 use super::output_data_format::ExchangeOrderbookData;
 
 // Maximal age of connection is 24 hours
@@ -60,8 +61,9 @@ pub fn spawn_thread(
             // But it's not the goal of this app.
         };
 
-        let url = format!("{}/{}@depth{}@100ms", BINANCE_API_BASE_URL, symbol, depth);
-        let url = Url::parse(&url).expect("Failed to parse URL");
+        let base_url = get_env_var_or_default("BINANCE_API_BASE_URL", BINANCE_API_BASE_URL.to_string());
+        let url = format!("{}/{}@depth{}@100ms", base_url, symbol, depth);
+        let url = Url::parse(&url).expect("Failed to parse Binance API URL");
 
         let (mut socket, _) = connect(url).expect("Can't connect to Binance API");
 

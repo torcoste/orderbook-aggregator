@@ -8,6 +8,8 @@ use tonic::{transport::Server, Request, Response, Status};
 use orderbook::orderbook_aggregator_server::{OrderbookAggregator, OrderbookAggregatorServer};
 use orderbook::{Empty, Summary};
 
+use crate::helpers::get_env_var_or_default;
+
 pub mod orderbook {
     tonic::include_proto!("orderbook");
 }
@@ -40,8 +42,11 @@ impl OrderbookAggregator for OrderbookAggregatorService {
     }
 }
 
+const DEFAULT_PORT: u16 = 10000;
+
 pub async fn serve(mut summary_rx: Receiver<Summary>) -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:10000".parse()?;
+    let port = get_env_var_or_default("PORT", DEFAULT_PORT);
+    let addr = format!("[::1]:{}", port).parse()?;
 
     let clients: Arc<Mutex<Vec<ClientSender>>> = Arc::new(Mutex::new(vec![]));
 
