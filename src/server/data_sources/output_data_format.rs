@@ -102,7 +102,8 @@ impl From<BitstampApiOrderBookData> for ExchangeOrderbookData {
             })
             .collect();
 
-        let timestamp = bitstamp_orderbook_message.timestamp.parse().unwrap();
+        let timestamp_in_seconds: u64 = bitstamp_orderbook_message.timestamp.parse().unwrap();
+        let timestamp = timestamp_in_seconds * 1000;
 
         Self::new_with_timestamp(exchange, asks, bids, timestamp)
     }
