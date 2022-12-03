@@ -1,8 +1,10 @@
 use serde::Deserialize;
 use tokio::sync::mpsc;
 use tungstenite::{connect, Message};
+use url::Url;
 
 use super::output_data_format::ExchangeOrderbookData;
+use crate::helpers::get_env_var_or_default;
 
 // Maximal age of connection is 90 days
 // TODO: reconnect if connection is lost
@@ -48,7 +50,7 @@ struct BitstampApiErrorMessage {
     data: BitstampApiErrorData,
 }
 
-const BITSTAMP_API_URL: &str = "wss://ws.bitstamp.net";
+const DEFAULT_BITSTAMP_API_URL: &str = "wss://ws.bitstamp.net";
 const BITSTAMP_DEPTH_LIMIT: u16 = 100;
 const BITSTAMP_EVENT_SUBSCRIBE: &str = "bts:subscribe";
 const BITSTAMP_EVENT_UNSUBSCRIBE: &str = "bts:unsubscribe";
@@ -69,10 +71,13 @@ pub fn spawn_thread(
         // But it's not the goal of this app.
     }
 
+    let url = get_env_var_or_default("BITSTAMP_API_URL", DEFAULT_BITSTAMP_API_URL.to_string());
+    let url = Url::parse(&url).expect("Failed to parse Bitstamp API URL");
+
     tokio::spawn(async move {
         let channel = format!("{}{}", BITSTAMP_ORDERBOOK_CHANNEL_PREFIX, symbol);
 
-        let (mut socket, _) = connect(BITSTAMP_API_URL).expect("Can't connect to Bitstamp API");
+        let (mut socket, _) = connect(url).expect("Can't connect to Bitstamp API");
 
         let subscribe_message = format!(
             r#"{{"event": "{}", "data": {{"channel": "{}"}}}}"#,

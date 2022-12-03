@@ -1,0 +1,7 @@
+[env]
+PORT = "10000"
+SYMBOL = "ethbtc"
+DEPTH = "10"
+DATA_LIFETIME_MS = "2000"
+BINANCE_API_BASE_URL = "wss://stream.binance.com:9443/ws"
+BITSTAMP_API_URL = "wss://ws.bitstamp.net"

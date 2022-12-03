@@ -36,7 +36,9 @@ async fn print_summaries(
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = OrderbookAggregatorClient::connect("http://[::1]:10000").await?;
+    let port = env!("PORT");
+    let url = format!("http://[::1]:{}", port);
+    let mut client = OrderbookAggregatorClient::connect(url).await?;
 
     print_summaries(&mut client).await?;
 
