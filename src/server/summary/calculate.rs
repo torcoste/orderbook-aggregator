@@ -3,8 +3,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use crate::api::orderbook::{Level, Summary};
 use crate::data_sources::output_data_format::ExchangeOrderbookData;
-use crate::orderbook::{Level, Summary};
 
 // TODO: measure calculation time
 pub fn calculate_summary(
