@@ -16,11 +16,11 @@ pub fn calculate_summary(
     let mut asks: Vec<Level> = Vec::new();
 
     for (exchange, orderbook) in orderbook_data.iter() {
-        let data_age = SystemTime::now()
+        let current_timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64
-            - orderbook.timestamp;
+            .expect("Failed to get current time")
+            .as_millis();
+        let data_age = current_timestamp as u64 - orderbook.timestamp;
 
         if data_age > data_lifetime_ms {
             // Data is too old, skip it

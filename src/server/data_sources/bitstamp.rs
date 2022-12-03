@@ -9,6 +9,7 @@ use super::output_data_format::ExchangeOrderbookData;
 
 #[derive(Deserialize, Debug)]
 pub struct BitstampApiOrderBookData {
+    /// timestamp in seconds
     pub timestamp: String,
     // microtimestamp: String,
     pub bids: Vec<(String, String)>,
