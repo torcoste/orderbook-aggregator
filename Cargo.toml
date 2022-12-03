@@ -1,27 +1,7 @@
-[package]
-name = "orderbook-aggregator"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = ["server", "client"]
 
-[[bin]]
-name = "server"
-path = "src/server/main.rs"
-
-[[bin]]
-name = "client"
-path = "src/client/main.rs"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-prost = "0.11.2"
-serde = { version = "1.0.147", features = ["derive"] }
-serde_json = "1.0.89"
-tokio = { version = "1.22.0", features = ["macros", "rt-multi-thread"] }
-tokio-stream = "0.1.11"
-tonic = "0.8.2"
-tungstenite = { version = "0.17.3", features = ["rustls-tls-native-roots"] }
-url = "2.3.1"
-
-[build-dependencies]
-tonic-build = "0.8.2"
+[workspace.package]
+authors = ["Victor Kostyuk <victor@kosty.uk>"]
+description = "Aggregator of order books from different cryptocurrency exchanges"
+repository = "https://github.com/torcoste/orderbook-aggregator"
