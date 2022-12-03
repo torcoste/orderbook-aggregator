@@ -83,7 +83,9 @@ pub fn spawn_thread(
             .expect("Error writing subscribe message");
 
         loop {
-            let message = socket.read_message().expect("Error reading message from Bitstamp API");
+            let message = socket
+                .read_message()
+                .expect("Error reading message from Bitstamp API");
 
             // TODO: implement heartbeat
 
@@ -140,7 +142,7 @@ pub fn spawn_thread(
                     // It will reduce further processing time
                     orderbook_data.trim(depth);
                 }
-            
+
                 let orderbook_data = ExchangeOrderbookData::from(orderbook_data);
 
                 tx.send(orderbook_data)

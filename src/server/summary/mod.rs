@@ -2,9 +2,8 @@ use std::collections::HashMap;
 
 use tokio::sync::mpsc::{self, Receiver};
 
+use crate::api::orderbook::Summary;
 use crate::data_sources::output_data_format::ExchangeOrderbookData;
-
-use crate::orderbook::Summary;
 
 mod calculate;
 use calculate::calculate_summary;
@@ -25,9 +24,10 @@ pub fn get_summary_rx(
             let summary = calculate_summary(orderbook_data.clone(), depth, data_lifetime_ms);
 
             if let Some(summary) = summary {
+                println!("Summary calculated. Spread: {}", summary.spread);
                 tx.send(summary).await.expect("Failed to send summary");
             } else {
-                // if all data is too old
+                // if all data is too old, or there is not enough data
                 println!("Failed to calculate summary");
             }
         }
