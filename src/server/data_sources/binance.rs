@@ -53,8 +53,7 @@ pub fn spawn_thread(
                     );
 
                     &BINANCE_SUPPORTED_DEPTH_LIMITS[2]
-                })
-                .clone()
+                }).to_owned()
 
             // "Unlimited" depth support may be implemented with more complex logic
             // Docs: https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md#how-to-manage-a-local-order-book-correctly
