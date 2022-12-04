@@ -9,14 +9,14 @@ where
     T: ToString + Display + Debug + FromStr,
     <T as FromStr>::Err: Debug,
 {
-    match env::var(var_name) {
-        Ok(val) => T::from_str(&val).unwrap(),
-        Err(error) => {
-            eprintln!(
-                "Error reading \"{}\" env var. Defaulting to \"{}\". Error details: {}",
-                var_name, default, error
-            );
-            default
+    let value = match env::var(var_name) {
+        Ok(value) => {
+            let value = value.parse::<T>().unwrap_or(default);
+            value
         }
-    }
+        Err(_) => default,
+    };
+
+    println!("{}: {}", var_name, value);
+    value
 }
