@@ -6,9 +6,6 @@ use url::Url;
 use super::output_data_format::ExchangeOrderbookData;
 use crate::helpers::get_env_var_or_default;
 
-// Maximal age of connection is 90 days
-// TODO: reconnect if connection is lost
-
 #[derive(Deserialize, Debug)]
 pub struct BitstampApiOrderBookData {
     /// timestamp in seconds
@@ -53,8 +50,11 @@ struct BitstampApiErrorMessage {
 const DEFAULT_BITSTAMP_API_URL: &str = "wss://ws.bitstamp.net";
 const BITSTAMP_DEPTH_LIMIT: u16 = 100;
 const BITSTAMP_EVENT_SUBSCRIBE: &str = "bts:subscribe";
-const BITSTAMP_EVENT_UNSUBSCRIBE: &str = "bts:unsubscribe";
 const BITSTAMP_ORDERBOOK_CHANNEL_PREFIX: &str = "order_book_";
+
+// Maximal age of connection is 90 days
+const BITSTAMP_CONNECTION_AGE_LIMIT_SECONDS: u64 = 90 * 24 * 60 * 60;
+const BITSTAMP_RECONNECTION_FREQUENCY_SECONDS: u64 = BITSTAMP_CONNECTION_AGE_LIMIT_SECONDS - 60;
 
 pub fn spawn_thread(
     symbol: String,
@@ -74,87 +74,98 @@ pub fn spawn_thread(
     let url = get_env_var_or_default("BITSTAMP_API_URL", DEFAULT_BITSTAMP_API_URL.to_string());
     let url = Url::parse(&url).expect("Failed to parse Bitstamp API URL");
 
+    let channel = format!("{}{}", BITSTAMP_ORDERBOOK_CHANNEL_PREFIX, symbol);
+    let subscribe_message = format!(
+        r#"{{"event": "{}", "data": {{"channel": "{}"}}}}"#,
+        BITSTAMP_EVENT_SUBSCRIBE, channel
+    );
+
     tokio::spawn(async move {
-        let channel = format!("{}{}", BITSTAMP_ORDERBOOK_CHANNEL_PREFIX, symbol);
+        let mut should_reconnect = true;
 
-        let (mut socket, _) = connect(url).expect("Can't connect to Bitstamp API");
+        while should_reconnect {
+            let (mut socket, _) = connect(url.clone()).expect("Can't connect to Bitstamp API");
 
-        let subscribe_message = format!(
-            r#"{{"event": "{}", "data": {{"channel": "{}"}}}}"#,
-            BITSTAMP_EVENT_SUBSCRIBE, channel
-        );
+            socket
+                .write_message(Message::Text(subscribe_message.clone()))
+                .expect("Error writing subscribe message");
 
-        socket
-            .write_message(Message::Text(subscribe_message.clone()))
-            .expect("Error writing subscribe message");
+            let connection_time = std::time::Instant::now();
 
-        loop {
-            let message = socket
-                .read_message()
-                .expect("Error reading message from Bitstamp API");
-
-            // TODO: implement heartbeat
-
-            let data = message.into_data();
-            let response: BitstampApiIncomingMessage = serde_json::from_slice(&data).unwrap();
-
-            if response.event == "bts:request_reconnect" {
-                println!("Bitstamp API requested reconnect. Reconnecting...");
-                socket
-                    .write_message(Message::Text(subscribe_message.clone()))
-                    .expect("Error resubscribing to Bitstamp API");
-                continue;
-            }
-
-            if response.event == "bts:error" {
-                match serde_json::from_slice::<BitstampApiErrorMessage>(&data) {
-                    Ok(bitstamp_error_message) => {
-                        let data = bitstamp_error_message.data;
-                        let message = data.message;
-                        let code = data.code.unwrap_or(-1);
-                        println!("Error from Bitstamp API: {} (code: {})", message, code);
-                    }
-                    Err(error) => {
-                        println!("Error parsing Bitstamp API error message: {}", error);
-                    }
-                }
-
-                continue;
-            }
-
-            // It would make sense to check if response.channel == channel, but we don't need it in this app, because we only subscribe to one channel
-            if response.event == "data" {
-                if tx.is_closed() {
-                    println!("Channel is closed. Unsubscribing from Bitstamp API...");
-                    let unsubscribe_message = format!(
-                        r#"{{"event":"{}","data":{{"channel":"{}"}}}}"#,
-                        BITSTAMP_EVENT_UNSUBSCRIBE, channel
-                    );
-                    socket
-                        .write_message(Message::Text(unsubscribe_message))
-                        .expect("Error unsubscribing from Bitstamp API");
-                    socket
-                        .close(None)
-                        .expect("Error closing connection to Bitstamp API");
-                    println!("Connection to Bitstamp API closed");
+            loop {
+                if !socket.can_read() {
+                    println!("Bitstamp API connection is closed by server. Reconnecting...");
+                    should_reconnect = true;
                     break;
                 }
 
-                let orderbook_data_message: BitstampApiOrderBookDataMessage =
-                    serde_json::from_slice(&data).unwrap();
-
-                let mut orderbook_data = orderbook_data_message.data;
-                if depth < BITSTAMP_DEPTH_LIMIT {
-                    // It will reduce further processing time
-                    orderbook_data.trim(depth);
+                if connection_time.elapsed().as_secs() > BITSTAMP_RECONNECTION_FREQUENCY_SECONDS {
+                    println!("Bitstamp API connection is too old. Reconnecting...");
+                    should_reconnect = true;
+                    break;
                 }
 
-                let orderbook_data = ExchangeOrderbookData::from(orderbook_data);
+                let message = socket
+                    .read_message()
+                    .expect("Error reading message from Bitstamp API");
 
-                tx.send(orderbook_data)
-                    .await
-                    .expect("Failed to send orderbook data from Bitstamp API");
+                // TODO: implement heartbeat
+
+                let data = message.into_data();
+                let response: BitstampApiIncomingMessage = serde_json::from_slice(&data)
+                    .expect("Error parsing BitstampApiIncomingMessage JSON");
+
+                if response.event == "bts:request_reconnect" {
+                    println!("Bitstamp API requested reconnect. Reconnecting...");
+                    should_reconnect = true;
+                    break;
+                }
+
+                if response.event == "bts:error" {
+                    match serde_json::from_slice::<BitstampApiErrorMessage>(&data) {
+                        Ok(bitstamp_error_message) => {
+                            let data = bitstamp_error_message.data;
+                            let message = data.message;
+                            let code = data.code.unwrap_or(-1);
+                            println!("Error from Bitstamp API: {} (code: {})", message, code);
+                        }
+                        Err(error) => {
+                            println!("Error parsing Bitstamp API error message: {}", error);
+                        }
+                    }
+
+                    continue;
+                }
+
+                // It would make sense to check if response.channel == channel, but we don't need it in this app, because we only subscribe to one channel
+                if response.event == "data" {
+                    if tx.is_closed() {
+                        println!("Channel is closed. Unsubscribing from Bitstamp API...");
+                        should_reconnect = false;
+                        break;
+                    }
+
+                    let orderbook_data_message: BitstampApiOrderBookDataMessage =
+                        serde_json::from_slice(&data)
+                            .expect("Error parsing BitstampApiOrderBookDataMessage JSON");
+
+                    let mut orderbook_data = orderbook_data_message.data;
+                    if depth < BITSTAMP_DEPTH_LIMIT {
+                        // It will reduce further processing time
+                        orderbook_data.trim(depth);
+                    }
+
+                    let orderbook_data = ExchangeOrderbookData::from(orderbook_data);
+
+                    tx.send(orderbook_data)
+                        .await
+                        .expect("Failed to send orderbook data from Bitstamp API");
+                }
             }
+
+            socket
+                .close(None)
+                .expect("Error closing connection to Bitstamp API");
         }
     })
 }
