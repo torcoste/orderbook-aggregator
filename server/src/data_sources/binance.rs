@@ -91,12 +91,20 @@ pub fn spawn_thread(
                     .expect("Error reading message from Binance API");
 
                 if message.is_ping() {
-                    socket
-                        .write_message(Message::Pong(message.into_data()))
-                        .unwrap_or_else(|e| {
-                            println!("Error sending PONG message: {}", e);
-                        });
-                    continue;
+                    match socket.write_message(Message::Pong(message.into_data())) {
+                        Ok(_) => {
+                            continue;
+                        }
+                        Err(error) => {
+                            println!(
+                                "Error sending PONG message to Binance API: {}. Reconnecting...",
+                                error
+                            );
+                            // if we don't send PONG, the connection will be closed by server 10 minutes later PING
+                            should_reconnect = true;
+                            break;
+                        }
+                    }
                 }
 
                 let data = message.into_data();
