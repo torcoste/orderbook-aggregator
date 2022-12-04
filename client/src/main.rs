@@ -1,4 +1,5 @@
 use std::error::Error;
+
 use tonic::{transport::Channel, Request};
 
 use orderbook::orderbook_aggregator_client::OrderbookAggregatorClient;
@@ -7,6 +8,9 @@ use orderbook::Empty;
 pub mod orderbook {
     tonic::include_proto!("orderbook"); // The string specified here must match the proto package name
 }
+
+mod print_summary_table;
+use print_summary_table::print_summary_as_table;
 
 async fn print_summaries(
     client: &mut OrderbookAggregatorClient<Channel>,
@@ -21,9 +25,7 @@ async fn print_summaries(
 
         if let Ok(message) = message_result {
             if let Some(message) = message {
-                println!("Received summary. Spread: {}", message.spread);
-                // println!("Full summary: {:?}", message);
-                println!("-----------------------------------")
+                print_summary_as_table(message);
             }
         } else {
             eprint!("Error: {:?}", message_result);
