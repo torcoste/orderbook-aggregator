@@ -50,27 +50,11 @@ impl From<BinanceApiOrderBookMessage> for ExchangeOrderbookData {
     fn from(binance_orderbook_message: BinanceApiOrderBookMessage) -> Self {
         let exchange = "binance".to_string();
 
-        let asks = binance_orderbook_message
-            .asks
-            .iter()
-            .map(|(price, amount)| {
-                (
-                    price.parse::<f64>().unwrap(),
-                    amount.parse::<f64>().unwrap(),
-                )
-            })
-            .collect();
+        let asks = parse_price_amount_tuples(&binance_orderbook_message.asks)
+            .expect("Failed to parse Binance asks");
 
-        let bids = binance_orderbook_message
-            .bids
-            .iter()
-            .map(|(price, amount)| {
-                (
-                    price.parse::<f64>().unwrap(),
-                    amount.parse::<f64>().unwrap(),
-                )
-            })
-            .collect();
+        let bids = parse_price_amount_tuples(&binance_orderbook_message.bids)
+            .expect("Failed to parse Binance bids");
 
         Self::new(exchange, asks, bids)
     }
@@ -80,31 +64,29 @@ impl From<BitstampApiOrderBookData> for ExchangeOrderbookData {
     fn from(bitstamp_orderbook_message: BitstampApiOrderBookData) -> Self {
         let exchange = "bitstamp".to_string();
 
-        let asks = bitstamp_orderbook_message
-            .asks
-            .iter()
-            .map(|(price, amount)| {
-                (
-                    price.parse::<f64>().unwrap(),
-                    amount.parse::<f64>().unwrap(),
-                )
-            })
-            .collect();
+        let asks = parse_price_amount_tuples(&bitstamp_orderbook_message.asks)
+            .expect("Failed to parse Bitstamp asks");
 
-        let bids = bitstamp_orderbook_message
-            .bids
-            .iter()
-            .map(|(price, amount)| {
-                (
-                    price.parse::<f64>().unwrap(),
-                    amount.parse::<f64>().unwrap(),
-                )
-            })
-            .collect();
+        let bids = parse_price_amount_tuples(&bitstamp_orderbook_message.bids)
+            .expect("Failed to parse Bitstamp bids");
 
         let timestamp_in_seconds: u64 = bitstamp_orderbook_message.timestamp.parse().unwrap();
         let timestamp = timestamp_in_seconds * 1000;
 
         Self::new_with_timestamp(exchange, asks, bids, timestamp)
     }
+}
+
+fn parse_price_amount_tuples(
+    vec: &Vec<(String, String)>,
+) -> Result<Vec<(f64, f64)>, Box<dyn std::error::Error>> {
+    let mut result = Vec::new();
+
+    for tuple in vec {
+        let price = tuple.0.parse::<f64>()?;
+        let amount = tuple.1.parse::<f64>()?;
+        result.push((price, amount));
+    }
+
+    Ok(result)
 }
