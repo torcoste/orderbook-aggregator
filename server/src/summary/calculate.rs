@@ -22,6 +22,8 @@ pub fn calculate_summary(
             .as_millis();
         let data_age = current_timestamp as u64 - orderbook.timestamp;
 
+        // println!("[DEBUG] {} data age: {}; ", exchange, data_age);
+
         if data_age > data_lifetime_ms {
             // Data is too old, skip it
             continue;

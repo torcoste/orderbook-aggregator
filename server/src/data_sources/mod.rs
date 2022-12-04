@@ -1,5 +1,3 @@
-use tokio::sync::mpsc::{self, Receiver};
-
 // Unified output data format
 pub mod output_data_format;
 use output_data_format::ExchangeOrderbookData;
@@ -8,8 +6,8 @@ use output_data_format::ExchangeOrderbookData;
 mod binance;
 mod bitstamp;
 
-pub fn get_data_rx(symbol: String, depth: u16) -> Receiver<ExchangeOrderbookData> {
-    let (tx, rx) = mpsc::channel::<ExchangeOrderbookData>(1);
+pub fn get_data_rx(symbol: String, depth: u16) -> flume::Receiver<ExchangeOrderbookData> {
+    let (tx, rx) = flume::bounded::<ExchangeOrderbookData>(0);
 
     binance::spawn_thread(symbol.clone(), depth, tx.clone());
 

@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use tokio::sync::mpsc;
 use tungstenite::{connect, Message};
 use url::Url;
 
@@ -59,7 +58,7 @@ const BITSTAMP_RECONNECTION_FREQUENCY_SECONDS: u64 = BITSTAMP_CONNECTION_AGE_LIM
 pub fn spawn_thread(
     symbol: String,
     depth: u16,
-    tx: mpsc::Sender<ExchangeOrderbookData>,
+    tx: flume::Sender<ExchangeOrderbookData>,
 ) -> tokio::task::JoinHandle<()> {
     if depth > BITSTAMP_DEPTH_LIMIT {
         println!(
@@ -115,7 +114,10 @@ pub fn spawn_thread(
                             continue;
                         }
                         Err(error) => {
-                            println!("Error sending PONG message to Bitstamp API: {}. Reconnecting...", error);
+                            println!(
+                                "Error sending PONG message to Bitstamp API: {}. Reconnecting...",
+                                error
+                            );
                             // if we don't send PONG, the connection will be closed by server immediately
                             should_reconnect = true;
                             break;
@@ -151,7 +153,7 @@ pub fn spawn_thread(
 
                 // It would make sense to check if response.channel == channel, but we don't need it in this app, because we only subscribe to one channel
                 if response.event == "data" {
-                    if tx.is_closed() {
+                    if tx.is_disconnected() {
                         println!("Channel is closed. Unsubscribing from Bitstamp API...");
                         should_reconnect = false;
                         break;
@@ -169,7 +171,7 @@ pub fn spawn_thread(
 
                     let orderbook_data = ExchangeOrderbookData::from(orderbook_data);
 
-                    tx.send(orderbook_data)
+                    tx.send_async(orderbook_data)
                         .await
                         .expect("Failed to send orderbook data from Bitstamp API");
                 }

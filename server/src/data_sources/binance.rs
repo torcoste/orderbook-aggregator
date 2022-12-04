@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use tokio::sync::mpsc;
 use tungstenite::{connect, Message};
 use url::Url;
 
@@ -41,7 +40,7 @@ const BINANCE_RECONNECTION_FREQUENCY_SECONDS: u64 = BINANCE_CONNECTION_AGE_LIMIT
 pub fn spawn_thread(
     symbol: String,
     depth: u16,
-    tx: mpsc::Sender<ExchangeOrderbookData>,
+    tx: flume::Sender<ExchangeOrderbookData>,
 ) -> tokio::task::JoinHandle<()> {
     let effective_depth = {
         BINANCE_SUPPORTED_DEPTH_LIMITS
@@ -111,7 +110,7 @@ pub fn spawn_thread(
 
                 match serde_json::from_slice::<BinanceApiOrderBookMessage>(&data) {
                     Ok(orderbook) => {
-                        if tx.is_closed() {
+                        if tx.is_disconnected() {
                             println!("Channel is closed. Unsubscribing from Binance API...");
                             should_reconnect = false;
                             break;
@@ -124,7 +123,7 @@ pub fn spawn_thread(
 
                         let orderbook_data = ExchangeOrderbookData::from(orderbook);
 
-                        tx.send(orderbook_data)
+                        tx.send_async(orderbook_data)
                             .await
                             .expect("Failed to send orderbook data from Binance API");
                     }
