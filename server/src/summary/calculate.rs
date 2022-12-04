@@ -54,16 +54,16 @@ pub fn calculate_summary(
 
     // sort bids and asks by price and amount
     bids.sort_by(|a, b| {
-        a.price
-            .partial_cmp(&b.price)
+        b.price
+            .partial_cmp(&a.price)
             .unwrap()
-            .then(a.amount.partial_cmp(&b.amount).unwrap())
+            .then(b.amount.partial_cmp(&a.amount).unwrap())
     });
     asks.sort_by(|a, b| {
         a.price
             .partial_cmp(&b.price)
             .unwrap()
-            .then(a.amount.partial_cmp(&b.amount).unwrap())
+            .then(b.amount.partial_cmp(&a.amount).unwrap())
     });
 
     // Select only first `depth` levels
