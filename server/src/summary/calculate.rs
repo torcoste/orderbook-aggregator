@@ -6,7 +6,6 @@ use std::{
 use crate::api::orderbook::{Level, Summary};
 use crate::data_sources::output_data_format::ExchangeOrderbookData;
 
-// TODO: measure calculation time
 pub fn calculate_summary(
     orderbook_data: HashMap<String, ExchangeOrderbookData>,
     depth: u16,
