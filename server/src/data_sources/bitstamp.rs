@@ -109,7 +109,19 @@ pub fn spawn_thread(
                     .read_message()
                     .expect("Error reading message from Bitstamp API");
 
-                // TODO: implement heartbeat
+                if message.is_ping() {
+                    match socket.write_message(Message::Pong(message.into_data())) {
+                        Ok(_) => {
+                            continue;
+                        }
+                        Err(error) => {
+                            println!("Error sending PONG message to Bitstamp API: {}. Reconnecting...", error);
+                            // if we don't send PONG, the connection will be closed by server immediately
+                            should_reconnect = true;
+                            break;
+                        }
+                    }
+                }
 
                 let data = message.into_data();
                 let response: BitstampApiIncomingMessage = serde_json::from_slice(&data)
