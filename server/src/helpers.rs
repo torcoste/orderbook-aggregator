@@ -10,10 +10,7 @@ where
     <T as FromStr>::Err: Debug,
 {
     let value = match env::var(var_name) {
-        Ok(value) => {
-            let value = value.parse::<T>().unwrap_or(default);
-            value
-        }
+        Ok(value) => value.parse::<T>().unwrap_or(default),
         Err(_) => default,
     };
 

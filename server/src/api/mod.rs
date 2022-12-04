@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use tokio::sync::mpsc::{self, Receiver, Sender};
+use flume::{r#async::RecvStream, Receiver, Sender};
 use tokio::sync::Mutex;
-use tokio_stream::wrappers::ReceiverStream;
 use tonic::{transport::Server, Request, Response, Status};
 
 use orderbook::orderbook_aggregator_server::{OrderbookAggregator, OrderbookAggregatorServer};
@@ -22,13 +21,13 @@ struct OrderbookAggregatorService {
 
 #[tonic::async_trait]
 impl OrderbookAggregator for OrderbookAggregatorService {
-    type BookSummaryStream = ReceiverStream<Result<Summary, Status>>;
+    type BookSummaryStream = RecvStream<'static, Result<Summary, Status>>;
 
     async fn book_summary(
         &self,
         _request: Request<Empty>,
     ) -> Result<Response<Self::BookSummaryStream>, Status> {
-        let (tx, rx) = mpsc::channel(1);
+        let (tx, rx) = flume::bounded(0);
 
         let mut clients = self.clients.lock().await;
         clients.push(tx.clone());
@@ -38,13 +37,13 @@ impl OrderbookAggregator for OrderbookAggregatorService {
         );
         drop(clients);
 
-        Ok(Response::new(ReceiverStream::new(rx)))
+        Ok(Response::new(rx.into_stream()))
     }
 }
 
 const DEFAULT_PORT: u16 = 10000;
 
-pub async fn serve(mut summary_rx: Receiver<Summary>) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn serve(summary_rx: Receiver<Summary>) -> Result<(), Box<dyn std::error::Error>> {
     let port = get_env_var_or_default("PORT", DEFAULT_PORT);
     let addr = format!("[::1]:{}", port).parse()?;
 
@@ -53,17 +52,19 @@ pub async fn serve(mut summary_rx: Receiver<Summary>) -> Result<(), Box<dyn std:
     let _main_server_thread = {
         let clients = clients.clone();
         tokio::spawn(async move {
-            while let Some(summary) = summary_rx.recv().await {
+            let mut iter = summary_rx.into_iter();
+
+            while let Some(summary) = iter.next() {
                 let mut clients = clients.lock().await;
                 let mut clients_to_remove = vec![];
 
                 for (i, client) in clients.iter().enumerate() {
-                    if client.is_closed() {
+                    if client.is_disconnected() {
                         clients_to_remove.push(i);
                         continue;
                     }
 
-                    match client.send(Ok(summary.clone())).await {
+                    match client.send_async(Ok(summary.clone())).await {
                         Ok(_) => (),
                         Err(e) => {
                             println!("Error sending summary to client: {}", e);

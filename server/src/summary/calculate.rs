@@ -6,7 +6,6 @@ use std::{
 use crate::api::orderbook::{Level, Summary};
 use crate::data_sources::output_data_format::ExchangeOrderbookData;
 
-// TODO: measure calculation time
 pub fn calculate_summary(
     orderbook_data: HashMap<String, ExchangeOrderbookData>,
     depth: u16,
@@ -21,6 +20,8 @@ pub fn calculate_summary(
             .expect("Failed to get current time")
             .as_millis();
         let data_age = current_timestamp as u64 - orderbook.timestamp;
+
+        // println!("[DEBUG] {} data age: {}; ", exchange, data_age);
 
         if data_age > data_lifetime_ms {
             // Data is too old, skip it
@@ -52,16 +53,16 @@ pub fn calculate_summary(
 
     // sort bids and asks by price and amount
     bids.sort_by(|a, b| {
-        a.price
-            .partial_cmp(&b.price)
+        b.price
+            .partial_cmp(&a.price)
             .unwrap()
-            .then(a.amount.partial_cmp(&b.amount).unwrap())
+            .then(b.amount.partial_cmp(&a.amount).unwrap())
     });
     asks.sort_by(|a, b| {
         a.price
             .partial_cmp(&b.price)
             .unwrap()
-            .then(a.amount.partial_cmp(&b.amount).unwrap())
+            .then(b.amount.partial_cmp(&a.amount).unwrap())
     });
 
     // Select only first `depth` levels
