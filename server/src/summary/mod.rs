@@ -11,27 +11,33 @@ pub fn get_summary_rx(
     depth: u16,
     data_lifetime_ms: u64,
 ) -> flume::Receiver<Summary> {
-    let (tx, rx) = flume::bounded::<Summary>(0);
+    let (tx, rx) = flume::bounded::<Summary>(10);
 
     tokio::spawn(async move {
         let mut orderbook_data: HashMap<String, ExchangeOrderbookData> = HashMap::new();
 
-        let mut iter = data_rx.into_iter();
-        while let Some(data) = iter.next() {
-            orderbook_data.insert(data.exchange.clone(), data);
+        while !data_rx.is_disconnected() {
+            let data_rx_drain = data_rx.drain();
+            let data = data_rx_drain.last();
 
-            let summary = calculate_summary(orderbook_data.clone(), depth, data_lifetime_ms);
+            if let Some(data) = data {
+                orderbook_data.insert(data.exchange.clone(), data);
 
-            if let Some(summary) = summary {
-                // println!("Summary calculated. Spread: {}", summary.spread);
-                tx.send_async(summary)
-                    .await
-                    .expect("Failed to send summary");
-            } else {
-                // if all data is too old, or there is not enough data
-                println!("Failed to calculate summary");
+                let summary = calculate_summary(orderbook_data.clone(), depth, data_lifetime_ms);
+
+                if let Some(summary) = summary {
+                    // println!("Summary calculated. Spread: {}", summary.spread);
+                    tx.send_async(summary)
+                        .await
+                        .expect("Failed to send summary");
+                } else {
+                    // if all data is too old, or there is not enough data
+                    println!("Failed to calculate summary");
+                }
             }
         }
+
+        println!("Summary thread finished");
     });
 
     rx
