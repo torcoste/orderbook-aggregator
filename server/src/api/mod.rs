@@ -52,38 +52,42 @@ pub async fn serve(summary_rx: Receiver<Summary>) -> Result<(), Box<dyn std::err
     let _main_server_thread = {
         let clients = clients.clone();
         tokio::spawn(async move {
-            let mut iter = summary_rx.into_iter();
+            while !summary_rx.is_disconnected() {
+                let summary_drain = summary_rx.drain();
+                let last = summary_drain.last();
+                if let Some(summary) = last {
+                    let mut clients = clients.lock().await;
+                    let mut clients_to_remove = vec![];
 
-            while let Some(summary) = iter.next() {
-                let mut clients = clients.lock().await;
-                let mut clients_to_remove = vec![];
-
-                for (i, client) in clients.iter().enumerate() {
-                    if client.is_disconnected() {
-                        clients_to_remove.push(i);
-                        continue;
-                    }
-
-                    match client.send_async(Ok(summary.clone())).await {
-                        Ok(_) => (),
-                        Err(e) => {
-                            println!("Error sending summary to client: {}", e);
+                    for (i, client) in clients.iter().enumerate() {
+                        if client.is_disconnected() {
                             clients_to_remove.push(i);
+                            continue;
+                        }
+
+                        match client.send_async(Ok(summary.clone())).await {
+                            Ok(_) => (),
+                            Err(e) => {
+                                println!("Error sending summary to client: {}", e);
+                                clients_to_remove.push(i);
+                            }
                         }
                     }
-                }
 
-                if !clients_to_remove.is_empty() {
-                    for i in clients_to_remove.iter().rev() {
-                        clients.remove(*i);
+                    if !clients_to_remove.is_empty() {
+                        for i in clients_to_remove.iter().rev() {
+                            clients.remove(*i);
+                        }
+                        println!(
+                            "{} clients disconnected. Clients left: {}",
+                            clients_to_remove.len(),
+                            clients.len()
+                        );
                     }
-                    println!(
-                        "{} clients disconnected. Clients left: {}",
-                        clients_to_remove.len(),
-                        clients.len()
-                    );
                 }
             }
+
+            println!("Main server thread finished");
         })
     };
 

@@ -7,7 +7,7 @@ mod binance;
 mod bitstamp;
 
 pub fn get_data_rx(symbol: String, depth: u16) -> flume::Receiver<ExchangeOrderbookData> {
-    let (tx, rx) = flume::bounded::<ExchangeOrderbookData>(0);
+    let (tx, rx) = flume::bounded::<ExchangeOrderbookData>(10);
 
     binance::spawn_thread(symbol.clone(), depth, tx.clone());
 
