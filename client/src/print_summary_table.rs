@@ -21,7 +21,7 @@ pub fn print_summary_as_table(summary: Summary) {
             Cell::new("Bid Exchange"),
             Cell::new("Bid Amount"),
             Cell::new("Bid Price").fg(Color::Green),
-            Cell::new("Ask Price").fg(Color::Green),
+            Cell::new("Ask Price").fg(Color::Red),
             Cell::new("Ask Amount"),
             Cell::new("Ask Exchange"),
         ]);
