@@ -18,11 +18,14 @@ pub fn get_summary_rx(
 
         while !data_rx.is_disconnected() {
             let data_rx_drain = data_rx.drain();
-            let data = data_rx_drain.last();
+            let mut need_to_recalculate_summary = false;
 
-            if let Some(data) = data {
+            for data in data_rx_drain {
                 orderbook_data.insert(data.exchange.clone(), data);
+                need_to_recalculate_summary = true;
+            }
 
+            if need_to_recalculate_summary {
                 let summary = calculate_summary(orderbook_data.clone(), depth, data_lifetime_ms);
 
                 if let Some(summary) = summary {
