@@ -18,7 +18,7 @@ impl ExchangeOrderbookData {
     pub fn new(exchange: String, asks: Vec<(f64, f64)>, bids: Vec<(f64, f64)>) -> Self {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .expect("Failed to get current time to create ExchangeOrderbookData")
             .as_millis() as u64;
 
         Self {
@@ -70,7 +70,10 @@ impl From<BitstampApiOrderBookData> for ExchangeOrderbookData {
         let bids = parse_price_amount_tuples(&bitstamp_orderbook_message.bids)
             .expect("Failed to parse Bitstamp bids");
 
-        let timestamp_in_seconds: u64 = bitstamp_orderbook_message.timestamp.parse().unwrap();
+        let timestamp_in_seconds: u64 = bitstamp_orderbook_message
+            .timestamp
+            .parse()
+            .expect("Failed to parse Bitstamp timestamp");
         let timestamp = timestamp_in_seconds * 1000;
 
         Self::new_with_timestamp(exchange, asks, bids, timestamp)

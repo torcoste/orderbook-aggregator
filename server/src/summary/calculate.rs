@@ -55,14 +55,22 @@ pub fn calculate_summary(
     bids.sort_by(|a, b| {
         b.price
             .partial_cmp(&a.price)
-            .unwrap()
-            .then(b.amount.partial_cmp(&a.amount).unwrap())
+            .expect("Failed to compare bid prices")
+            .then(
+                b.amount
+                    .partial_cmp(&a.amount)
+                    .expect("Failed to compare bid amounts"),
+            )
     });
     asks.sort_by(|a, b| {
         a.price
             .partial_cmp(&b.price)
-            .unwrap()
-            .then(b.amount.partial_cmp(&a.amount).unwrap())
+            .expect("Failed to compare ask prices")
+            .then(
+                b.amount
+                    .partial_cmp(&a.amount)
+                    .expect("Failed to compare ask amounts"),
+            )
     });
 
     // Select only first `depth` levels
